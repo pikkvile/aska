@@ -1,0 +1,23 @@
+{
+  "name": "aska",
+  "version": "0.0.1",
+  "description": "Ask around application",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pikkvile/aska.git"
+  },
+  "keywords": [
+    "ask",
+    "around"
+  ],
+  "author": "pikkvile",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pikkvile/aska/issues"
+  },
+  "homepage": "https://github.com/pikkvile/aska#readme"
+}
