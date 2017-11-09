@@ -1,0 +1,16 @@
+doctype html
+html
+    head
+        title Ask Around
+    body
+        h1 Ask Around
+        p Hello, #{user.name}
+        a(href="/net") Контакты
+        a(href="/asks/out") Мои вопросы
+        a(href="/asks/in") Вопросы мне
+        form(method='post', action='/ask')
+            textarea(name='ask')
+            div
+                input(name='bid')
+            div
+                button(type='submit') Поспрашивать
