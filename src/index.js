@@ -17,6 +17,13 @@ app.use(express.static('public'));
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({extended: false}));
 
+// security
+app.get('/login', (req, res) => res.render('login'));
+app.get('/fake-create', sec.createFake);
+app.get('/fake-login', sec.loginFake);
+app.get('/logout', sec.logout);
+
+// asks
 app.get('/', sec.authorized, (req, res) =>  {
     asks.find({_id: {$in: req.user.inbox}}).then(asks => {
         res.render('index', {
@@ -25,16 +32,7 @@ app.get('/', sec.authorized, (req, res) =>  {
         })
     });
 });
-
-app.get('/login', (req, res) => res.render('login'));
-app.get('/fake-create', sec.createFake);
-app.get('/fake-login', sec.loginFake);
-app.get('/logout', sec.logout);
-
-app.get('/ask', sec.authorized, (req, res) => {
-    res.render('ask', {user: req.user});
-});
-
+app.get('/ask', sec.authorized, (req, res) => res.render('ask', {user: req.user}));
 app.post('/ask', sec.authorized, (req, res) => {
 
     const user = req.user;
@@ -56,8 +54,14 @@ app.post('/ask', sec.authorized, (req, res) => {
     });
 });
 
-app.get('/asks', sec.authorized, (req, res) => {
-
+// contacts
+app.get('/contacts', sec.authorized, (req, res) =>  {
+    users.find({_id: {$in: req.user.peers}}).then(contacts => {
+        res.render('contacts', {
+            user: req.user,
+            contacts: contacts.map(c => {return {name: c.name}})
+        })
+    });
 });
 
 app.listen(3000);
@@ -74,3 +78,6 @@ app.listen(3000);
 // 1. user can create an ASK
 //    - Q: who will see it? A: there're options: all peers, selected peers (by groups or individually), peers mathed
 //                             by tags or relevancy. First option is the easiest.
+
+// 2. user can have peers
+//    - Q: how two users can become peers?

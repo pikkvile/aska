@@ -1,0 +1,9 @@
+extends layout.pug
+
+block content
+    if contacts.length
+        ul.list-unstyled
+            each contact in contacts
+                li.contact #{contact.name}
+    else
+        h6: i You have no contacts yet
