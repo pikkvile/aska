@@ -4,4 +4,8 @@ html
         title Ask Around
     body
         h1 Login
-        a(href="/vk-auth") Using VK
+        p: a(href="/fake-create") Create fake user
+        p
+            form(action='/fake-login')
+                input(type='text', name='uid')
+                button(type='submit') Fake Login

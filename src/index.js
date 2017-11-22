@@ -4,60 +4,73 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 
+const sec = require('./security.js');
+
 const db = require('monk')('localhost/aska-dev');
 const users = db.get('users');
 const asks = db.get('asks');
 
 const app = express();
-
 app.set('view engine', 'pug');
 
-const secured = (req, res, next) => {
-    const token = req.cookies.ASKA_TOKEN;
-    if (!token) {
-        res.redirect("/login");
-    } else {
-        req.userId = parseInt(token);
-        next();
-    }
-};
-
+app.use(express.static('public'));
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({extended: false}));
 
-app.get('/', secured, (req, res) =>  {
-    users.findOne({id: req.userId}).then(user =>
-        res.render('index', {user: user}));
-});
-
-app.get('/login', (req, res) =>  {
-    res.render('login');
-});
-
-app.get('/vk-auth', (req, res) =>  {
-    let vkId = new Date().getTime();
-    users.findOne({vkId: vkId}).then(user => {
-        if (!user) {
-            user = {
-                vkId: vkId,
-                id: vkId,
-                name: "Test user " + vkId
-            };
-            users.insert(user);
-        }
-        res.cookie("ASKA_TOKEN", user.id);
-        res.redirect('/');
+app.get('/', sec.authorized, (req, res) =>  {
+    asks.find({_id: {$in: req.user.inbox}}).then(asks => {
+        res.render('index', {
+            user: req.user,
+            asks: asks
+        })
     });
 });
 
-app.post('/ask', secured, (req, res) => {
+app.get('/login', (req, res) => res.render('login'));
+app.get('/fake-create', sec.createFake);
+app.get('/fake-login', sec.loginFake);
+app.get('/logout', sec.logout);
+
+app.get('/ask', sec.authorized, (req, res) => {
+    res.render('ask', {user: req.user});
+});
+
+app.post('/ask', sec.authorized, (req, res) => {
+
+    const user = req.user;
+
+    // insert new ask into asks collection
     asks.insert({
-        id: new Date().getTime(),
-        owner: req.userId,
+        createdAt: new Date().getTime(),
+        owner: req.user._id,
         body: req.body.ask,
         bid: req.body.bid
-    }).then(() => res.redirect('/'));
+
+    }).then(ask => {
+        const recipients = user.peers; // collection of ids
+        users.update(
+            {_id: {$in: recipients}},
+            {$push: {inbox: ask._id}},
+            {multi: true})
+            .then(() => res.redirect('/'));
+    });
+});
+
+app.get('/asks', sec.authorized, (req, res) => {
+
 });
 
 app.listen(3000);
 
+// ask is: id: Long, ownerId: Long, body: Text, header: Optional<String>, bid: Double, tags: List<String>
+// ----------------------------------------------------------------------------
+// | header.orElse(body.take(100))|                                   | 1000 P|
+// |--------------------------------------------------------------------------|
+// | body                                                                     |
+// |--------------------------------------------------------------------------|
+// | <tag> <tag> <tag>                                                Owner?  |
+// ----------------------------------------------------------------------------
+
+// 1. user can create an ASK
+//    - Q: who will see it? A: there're options: all peers, selected peers (by groups or individually), peers mathed
+//                             by tags or relevancy. First option is the easiest.

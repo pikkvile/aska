@@ -1,0 +1,28 @@
+doctype html
+html
+    head
+        title Ask Around
+        meta(charset='utf-8')
+        meta(name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no")
+        link(rel='stylesheet', type='text/css', href='https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css')
+        link(rel='stylesheet', type='text/css', href='css/style.css')
+
+    body
+        div.container
+            div.row.align-items-end
+                div.col-3
+                    h1.text-right Ask Around
+                div.col-9.text-right
+                    div Hello, #{user.name}!
+                    a(href='/logout') Logout
+
+            div.row
+                div.col-3
+                    nav.nav.flex-column
+                        a.nav-link.text-right(href='/') Income
+                        a.nav-link.text-right(href='/asks/sent') Sent
+                        a.nav-link.text-right(href='/ask') Ask
+                        a.nav-link.text-right(href='/contacts') Contacts
+
+                div.col-9
+                    block content

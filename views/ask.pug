@@ -1,0 +1,14 @@
+extends layout.pug
+
+block content
+    form(method='post')
+        div.form-group
+            label(for='body') Ask around for...
+            textarea.form-control#body(name='ask')
+        div.form-group
+            label(for='bid') Bid
+            div.form-row
+                div.col-3.input-group
+                    input.form-control#bid(type='text', name='bid')
+                    div.input-group-addon Р
+        button.btn.btn-primary(type='submit') Ask around!
