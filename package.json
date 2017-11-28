@@ -3,9 +3,8 @@
   "version": "0.0.1",
   "description": "Ask around application",
   "main": "src/index.js",
-
   "scripts": {
-    "test": "test",
+    "test": "node_modules/.bin/mocha -w",
     "start": "node $NODE_DEBUG_OPTION src/index.js"
   },
   "repository": {
@@ -22,12 +21,15 @@
     "url": "https://github.com/pikkvile/aska/issues"
   },
   "homepage": "https://github.com/pikkvile/aska#readme",
-
   "dependencies": {
     "express": "4.16.2",
     "cookie-parser": "1.4.3",
     "pug": "2.0.0-alpha6",
     "monk": "6.0.5",
     "body-parser": "1.18.2"
+  },
+  "devDependencies": {
+    "mocha": "4.0.1",
+    "chai": "4.1.2"
   }
 }

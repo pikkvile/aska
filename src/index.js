@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 
 const sec = require('./security.js');
+const asksrv = require('./asks.js');
 
 const db = require('monk')('localhost/aska-dev');
 const users = db.get('users');
@@ -26,33 +27,15 @@ app.get('/logout', sec.logout);
 // asks
 app.get('/', sec.authorized, (req, res) =>  {
     asks.find({_id: {$in: req.user.inbox}}).then(asks => {
-        res.render('index', {
+        res.render('asks', {
             user: req.user,
             asks: asks
         })
     });
 });
 app.get('/ask', sec.authorized, (req, res) => res.render('ask', {user: req.user}));
-app.post('/ask', sec.authorized, (req, res) => {
-
-    const user = req.user;
-
-    // insert new ask into asks collection
-    asks.insert({
-        createdAt: new Date().getTime(),
-        owner: req.user._id,
-        body: req.body.ask,
-        bid: req.body.bid
-
-    }).then(ask => {
-        const recipients = user.peers; // collection of ids
-        users.update(
-            {_id: {$in: recipients}},
-            {$push: {inbox: ask._id}},
-            {multi: true})
-            .then(() => res.redirect('/'));
-    });
-});
+app.post('/ask', sec.authorized, (req, res) => asks.create(new Ask(req)).then(() => res.redirect('/')));
+app.get('/ask/:id/propagate', sec.authorized, (req, res) => asksrv.propagate(req.params.id, req.user));
 
 // contacts
 app.get('/contacts', sec.authorized, (req, res) =>  {
@@ -66,9 +49,20 @@ app.get('/contacts', sec.authorized, (req, res) =>  {
 
 app.listen(3000);
 
+// model
+
+function Ask(req) {
+    this.createdAt = new Date().getTime();
+    this.path = req.user._id.toString();
+    this.body = req.body.ask;
+    this.bid = parseFloat(req.body.bid);
+    this.tags = [];
+    this.trace = [];
+}
+
 // ask is: id: Long, ownerId: Long, body: Text, header: Optional<String>, bid: Double, tags: List<String>
 // ----------------------------------------------------------------------------
-// | header.orElse(body.take(100))|                                   | 1000 P|
+// | created at | received_from |                                     | 1000 P|
 // |--------------------------------------------------------------------------|
 // | body                                                                     |
 // |--------------------------------------------------------------------------|
@@ -81,3 +75,5 @@ app.listen(3000);
 
 // 2. user can have peers
 //    - Q: how two users can become peers?
+
+// 3. user once received an ask can propagate it (same as create, no routing yet implemented)
