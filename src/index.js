@@ -4,10 +4,12 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 
+const config = require('./config.js');
+
 const sec = require('./security.js');
 const asksrv = require('./asks.js');
 
-const db = require('monk')('localhost/aska-dev');
+const db = require('./db.js');
 const users = db.get('users');
 const asks = db.get('asks');
 
@@ -47,7 +49,9 @@ app.get('/contacts', sec.authorized, (req, res) =>  {
     });
 });
 
-app.listen(3000);
+const server = app.listen(config.port, function() {
+    console.log('server is up, port ' + config.port);
+});
 
 // model
 
@@ -59,6 +63,12 @@ function Ask(req) {
     this.tags = [];
     this.trace = [];
 }
+
+// for tests
+module.exports = {
+    server: server,
+    db: db
+};
 
 // ask is: id: Long, ownerId: Long, body: Text, header: Optional<String>, bid: Double, tags: List<String>
 // ----------------------------------------------------------------------------

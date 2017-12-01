@@ -4,7 +4,7 @@
   "description": "Ask around application",
   "main": "src/index.js",
   "scripts": {
-    "test": "node_modules/.bin/mocha -w",
+    "test": "export ASKA_ENV=test && node_modules/.bin/mocha -w",
     "start": "node $NODE_DEBUG_OPTION src/index.js"
   },
   "repository": {
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "mocha": "4.0.1",
-    "chai": "4.1.2"
+    "chai": "4.1.2",
+    "request": "2.83.0"
   }
 }

@@ -1,6 +1,6 @@
 'use strict';
 
-const db = require('monk')('localhost/aska-dev');
+const db = require('./db.js');
 const users = db.get('users');
 const asks = db.get('asks');
 

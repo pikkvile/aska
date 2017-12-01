@@ -1,6 +1,10 @@
 const assert = require('chai').assert;
+const r = require('request');
 
-const db = require('monk')('localhost/aska-test');
+const config = require('../src/config.js');
+const aska = require('../src/index.js');
+const server = aska.server;
+const db = aska.db;
 const users = db.get('users');
 const asks = db.get('asks');
 
@@ -43,13 +47,20 @@ const setup = () => users.remove().then(() => asks.remove())
     .then(() => makeUsersPeers("Test user 1", ["Test user 2", "Test user 3"]))
     .then(() => makeUsersPeers("Test user 2", ["Test user 4"]));
 
-after(() => db.close());
+after(done => server.close(() => {
+    console.log("server closed");
+    db.close().then(() => {
+        console.log("db closed");
+        done();
+        process.exit();
+    })
+}));
 
 describe("Asks features", function() {
 
     beforeEach(setup);
 
-    it("test beforeEach setup", (done) => {
+    it("verify beforeEach setup", done => {
         users.find()
             .then(usrs => {
                 assert(usrs.filter(u => u.peers.length).length === 4);
@@ -58,6 +69,14 @@ describe("Asks features", function() {
             })
             .then(() => done())
             .catch(done);
+    });
+
+    it("test create", done => {
+        r.post('http://localhost:' + config.port, function(err, resp, body) {
+            if (err) done(err);
+            console.log("response: " + body);
+            done();
+        });
     });
 });
 
