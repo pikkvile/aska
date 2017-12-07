@@ -4,14 +4,14 @@ const db = require('./db.js');
 const users = db.get('users');
 const asks = db.get('asks');
 
-function create(ask) {
-    return asks.insert(ask).then(ask => asksrv.propagate(ask._id, req.user))
+function create(ask, user) {
+    return asks.insert(ask).then(ask => propagate(ask._id, user))
 }
 
 // todo mocha test this
 // No transaction - this is bad.
 function propagate(askId, sourceUser) {
-    return asks.find(askId)
+    return asks.findOne(askId)
         .then(ask => {
             const recipients = sourceUser.peers;
             return Promise.all([

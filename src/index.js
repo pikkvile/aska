@@ -36,7 +36,7 @@ app.get('/', sec.authorized, (req, res) =>  {
     });
 });
 app.get('/ask', sec.authorized, (req, res) => res.render('ask', {user: req.user}));
-app.post('/ask', sec.authorized, (req, res) => asks.create(new Ask(req)).then(() => res.redirect('/')));
+app.post('/ask', sec.authorized, (req, res) => asksrv.create(new Ask(req), req.user).then(() => res.redirect('/')));
 app.get('/ask/:id/propagate', sec.authorized, (req, res) => asksrv.propagate(req.params.id, req.user));
 
 // contacts
@@ -57,7 +57,7 @@ const server = app.listen(config.port, function() {
 
 function Ask(req) {
     this.createdAt = new Date().getTime();
-    this.path = req.user._id.toString();
+    this.path = [req.user._id.toString()];
     this.body = req.body.ask;
     this.bid = parseFloat(req.body.bid);
     this.tags = [];

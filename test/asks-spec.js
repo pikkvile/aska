@@ -47,6 +47,19 @@ const setup = () => users.remove().then(() => asks.remove())
     .then(() => makeUsersPeers("Test user 1", ["Test user 2", "Test user 3"]))
     .then(() => makeUsersPeers("Test user 2", ["Test user 4"]));
 
+const postAs = (userName, url, form, cb) => {
+    users.findOne({name: userName}).then(user =>
+        r({
+            method: 'POST',
+            url: url,
+            headers: {'Cookie': 'ASKA_TOKEN=' + user._id.toString()},
+            form: form
+        }, function(err, resp, body) {
+            let requestInitiator = user._id.toString();
+            cb(requestInitiator, err, resp, body);
+        }));
+};
+
 after(done => server.close(() => {
     console.log("server closed");
     db.close().then(() => {
@@ -71,11 +84,27 @@ describe("Asks features", function() {
             .catch(done);
     });
 
-    it("test create", done => {
-        r.post('http://localhost:' + config.port, function(err, resp, body) {
+    it("create", done => {
+        let ask = {
+            ask: 'Test ask from Test user 1',
+            bid: '1000'
+        };
+        postAs('Test user 1', 'http://localhost:' + config.port + "/ask", ask, function(requestInitiator, err, resp) {
             if (err) done(err);
-            console.log("response: " + body);
-            done();
+            console.log(JSON.stringify(resp));
+            assert(resp.statusCode === 302);
+            assert(resp.headers['location'] === '/');
+            asks.find({}).then(asksCreated => {
+                assert(asksCreated.length === 1);
+                let askCreated = asksCreated[0];
+                assert(askCreated.body === ask.ask);
+                assert(askCreated.bid === parseInt(ask.bid));
+                let path = askCreated.path;
+                assert(path.length === 1);
+                let owner = path[0];
+                assert(owner === requestInitiator);
+                done();
+            }).catch(done);
         });
     });
 });
