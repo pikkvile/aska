@@ -2,9 +2,8 @@ const assert = require('chai').assert;
 const r = require('request');
 
 const config = require('../src/config.js');
-const aska = require('../src/index.js');
-const server = aska.server;
-const db = aska.db;
+const db = require('../src/db.js');
+const server = require('../src/index.js');
 const users = db.get('users');
 const asks = db.get('asks');
 
@@ -93,7 +92,7 @@ describe("Asks features", function() {
             if (err) done(err);
             console.log(JSON.stringify(resp));
             assert(resp.statusCode === 302);
-            assert(resp.headers['location'] === '/');
+            assert(resp.headers['location'] === '/asks/mine');
             asks.find({}).then(asksCreated => {
                 assert(asksCreated.length === 1);
                 let askCreated = asksCreated[0];
@@ -103,6 +102,7 @@ describe("Asks features", function() {
                 assert(path.length === 1);
                 let owner = path[0];
                 assert(owner === requestInitiator);
+                assert(askCreated.owner === requestInitiator);
                 done();
             }).catch(done);
         });

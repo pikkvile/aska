@@ -27,16 +27,25 @@ app.get('/fake-login', sec.loginFake);
 app.get('/logout', sec.logout);
 
 // asks
-app.get('/', sec.authorized, (req, res) =>  {
-    asks.find({_id: {$in: req.user.inbox}}).then(asks => {
+app.get(['/', '/asks'], sec.authorized, (req, res) => asksrv.incomes(req.user).then(asks => {
         res.render('asks', {
             user: req.user,
-            asks: asks
+            asks: asks,
+            emptyMessage: 'You have no incoming asks yet'
         })
-    });
-});
+    })
+);
+app.get('/asks/mine', sec.authorized, (req, res) => asksrv.mine(req.user).then(asks => {
+        res.render('asks', {
+            user: req.user,
+            asks: asks,
+            emptyMessage: 'You have no sent asks yet',
+            page: 'mine'
+        })
+    })
+);
 app.get('/ask', sec.authorized, (req, res) => res.render('ask', {user: req.user}));
-app.post('/ask', sec.authorized, (req, res) => asksrv.create(new Ask(req), req.user).then(() => res.redirect('/')));
+app.post('/ask', sec.authorized, (req, res) => asksrv.create(new Ask(req), req.user).then(() => res.redirect('/asks/mine')));
 app.get('/ask/:id/propagate', sec.authorized, (req, res) => asksrv.propagate(req.params.id, req.user));
 
 // contacts
@@ -54,9 +63,9 @@ const server = app.listen(config.port, function() {
 });
 
 // model
-
 function Ask(req) {
     this.createdAt = new Date().getTime();
+    this.owner = req.user._id.toString();
     this.path = [req.user._id.toString()];
     this.body = req.body.ask;
     this.bid = parseFloat(req.body.bid);
@@ -65,10 +74,7 @@ function Ask(req) {
 }
 
 // for tests
-module.exports = {
-    server: server,
-    db: db
-};
+module.exports = server;
 
 // ask is: id: Long, ownerId: Long, body: Text, header: Optional<String>, bid: Double, tags: List<String>
 // ----------------------------------------------------------------------------
@@ -87,3 +93,5 @@ module.exports = {
 //    - Q: how two users can become peers?
 
 // 3. user once received an ask can propagate it (same as create, no routing yet implemented)
+
+

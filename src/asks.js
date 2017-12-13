@@ -25,7 +25,17 @@ function propagate(askId, sourceUser) {
         });
 }
 
+function incomes(user) {
+    return asks.find({_id: {$in: user.inbox}});
+}
+
+function mine(user) {
+    return asks.find({owner: user._id.toString()});
+}
+
 module.exports = {
     create: create,
-    propagate: propagate
+    propagate: propagate,
+    incomes: incomes,
+    mine: mine
 };
