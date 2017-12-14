@@ -9,6 +9,9 @@ const authorized = (req, res, next) => {
         res.redirect("/login");
     } else {
         users.findOne(token).then(user => {
+            if (!user) { // user sent some token, but we were not able to authenticate it
+                return logout(req, res);
+            }
             req.user = user;
             next();
         });

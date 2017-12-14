@@ -4,25 +4,31 @@ const db = require('./db.js');
 const users = db.get('users');
 const asks = db.get('asks');
 
-function create(ask, user) {
-    return asks.insert(ask).then(ask => propagate(ask._id, user))
+function create(ask) {
+    return asks.insert(ask);
 }
 
-// todo mocha test this
 // No transaction - this is bad.
 function propagate(askId, sourceUser) {
-    return asks.findOne(askId)
-        .then(ask => {
-            const recipients = sourceUser.peers;
-            return Promise.all([
-                users.update(
-                    {_id: {$in: recipients}},
-                    {$push: {inbox: ask._id.toString()}},
-                    {multi: true}),
-                users.update(sourceUser._id, {$pull: {inbox: ask._id.toString()}}), /* remove from my inbox */
-                asks.update(askId, {$push: {trace: sourceUser._id.toString()}}) /* update trace */
-            ]);
+    return new Promise((resolve, reject) => {
+        asks.findOne(askId).then(ask => {
+            if (ask.owner !== sourceUser._id.toString() && sourceUser.inbox.indexOf(askId) < 0) {
+                reject('illegal propagate');
+            } else {
+                const recipients = sourceUser.peers; // todo select recipients
+                // todo filter who already has this ask
+                Promise.all([
+                    users.update(
+                        {_id: {$in: recipients}},
+                        {$push: {inbox: askId}},
+                        {multi: true}),
+                    asks.update(askId, {
+                        $push: {transitions: new Transition(sourceUser._id.toString(), recipients)},
+                        $set: {status: 'travelling'}
+                    })]).then(resolve);
+            }
         });
+    });
 }
 
 function incomes(user) {
@@ -31,6 +37,14 @@ function incomes(user) {
 
 function mine(user) {
     return asks.find({owner: user._id.toString()});
+}
+
+// model
+
+// Transition = Transition String [String]
+function Transition(emitter, recipients) {
+    this.emitter = emitter;
+    this.recipients = recipients;
 }
 
 module.exports = {

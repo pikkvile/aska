@@ -45,8 +45,13 @@ app.get('/asks/mine', sec.authorized, (req, res) => asksrv.mine(req.user).then(a
     })
 );
 app.get('/ask', sec.authorized, (req, res) => res.render('ask', {user: req.user}));
-app.post('/ask', sec.authorized, (req, res) => asksrv.create(new Ask(req), req.user).then(() => res.redirect('/asks/mine')));
-app.get('/ask/:id/propagate', sec.authorized, (req, res) => asksrv.propagate(req.params.id, req.user));
+app.post('/ask', sec.authorized, (req, res) => asksrv.create(new Ask(req)).then(() => res.redirect('/asks/mine')));
+// todo show asks differently by status
+// todo think show some ditribution (transitions) info
+app.get('/ask/:id/propagate', sec.authorized, (req, res) =>
+    asksrv.propagate(req.params.id, req.user).then(
+        () => res.redirect('/asks'),
+        () => res.sendStatus(403))); // todo mocha test this
 
 // contacts
 app.get('/contacts', sec.authorized, (req, res) =>  {
@@ -66,11 +71,11 @@ const server = app.listen(config.port, function() {
 function Ask(req) {
     this.createdAt = new Date().getTime();
     this.owner = req.user._id.toString();
-    this.path = [req.user._id.toString()];
     this.body = req.body.ask;
     this.bid = parseFloat(req.body.bid);
-    this.tags = [];
-    this.trace = [];
+    this.tags = []; // todo
+    this.transitions = []; // see Transition in asks.js
+    this.status = 'created'; // created / travelling / resolved / cancelled
 }
 
 // for tests
@@ -93,5 +98,3 @@ module.exports = server;
 //    - Q: how two users can become peers?
 
 // 3. user once received an ask can propagate it (same as create, no routing yet implemented)
-
-

@@ -46,18 +46,29 @@ const setup = () => users.remove().then(() => asks.remove())
     .then(() => makeUsersPeers("Test user 1", ["Test user 2", "Test user 3"]))
     .then(() => makeUsersPeers("Test user 2", ["Test user 4"]));
 
-const postAs = (userName, url, form, cb) => {
-    users.findOne({name: userName}).then(user =>
-        r({
-            method: 'POST',
-            url: url,
-            headers: {'Cookie': 'ASKA_TOKEN=' + user._id.toString()},
-            form: form
-        }, function(err, resp, body) {
-            let requestInitiator = user._id.toString();
-            cb(requestInitiator, err, resp, body);
-        }));
-};
+const postAs = (user, url, form, cb) =>
+    r({
+        method: 'POST',
+        url: url,
+        headers: {'Cookie': 'ASKA_TOKEN=' + user._id.toString()},
+        form: form
+    }, cb);
+
+const getAs = (user, url, cb) =>
+    r({
+        method: 'GET',
+        url: url,
+        headers: {'Cookie': 'ASKA_TOKEN=' + user._id.toString()}
+    }, cb);
+
+const postAsk = (ask, initiator) => new Promise((resolve, reject) =>
+    postAs(initiator, 'http://localhost:' + config.port + "/ask", ask, function(err, resp) {
+        if (!err) {
+            resolve(resp);
+        } else {
+            reject(err);
+        }
+    }));
 
 after(done => server.close(() => {
     console.log("server closed");
@@ -88,23 +99,52 @@ describe("Asks features", function() {
             ask: 'Test ask from Test user 1',
             bid: '1000'
         };
-        postAs('Test user 1', 'http://localhost:' + config.port + "/ask", ask, function(requestInitiator, err, resp) {
-            if (err) done(err);
-            console.log(JSON.stringify(resp));
-            assert(resp.statusCode === 302);
-            assert(resp.headers['location'] === '/asks/mine');
-            asks.find({}).then(asksCreated => {
-                assert(asksCreated.length === 1);
-                let askCreated = asksCreated[0];
-                assert(askCreated.body === ask.ask);
-                assert(askCreated.bid === parseInt(ask.bid));
-                let path = askCreated.path;
-                assert(path.length === 1);
-                let owner = path[0];
-                assert(owner === requestInitiator);
-                assert(askCreated.owner === requestInitiator);
-                done();
-            }).catch(done);
+        users.findOne({name: 'Test user 1'}).then(initiator => {
+            postAsk(ask, initiator).then(resp => {
+                console.log(JSON.stringify(resp));
+                assert(resp.statusCode === 302);
+                assert(resp.headers['location'] === '/asks/mine');
+                asks.find({}).then(asksCreated => {
+                    assert(asksCreated.length === 1);
+                    let askCreated = asksCreated[0];
+                    assert(askCreated.body === ask.ask);
+                    assert(askCreated.bid === parseInt(ask.bid));
+                    let transitions = askCreated.transitions;
+                    assert(transitions.length === 0);
+                    assert('created' === askCreated.status);
+                    let owner = askCreated.owner;
+                    assert(owner === initiator._id.toString());
+                    done();
+                }).catch(done);
+            });
+        });
+    });
+
+    it("propagate", done => {
+        let ask = {
+            ask: 'Test ask from Test user 1',
+            bid: '1000'
+        };
+        users.findOne({name: 'Test user 1'}).then(initiator => {
+            postAsk(ask, initiator).then(() => {
+                asks.findOne({owner: initiator._id.toString()}).then(askCreated => {
+                    users.findOne({name: 'Test user 1'}).then(propagater => {
+                        getAs(propagater,
+                            'http://localhost:' + config.port + "/ask/" + askCreated._id.toString() + '/propagate',
+                            function(err, resp) {
+                                console.log(JSON.stringify(resp));
+                                assert(resp.statusCode === 200);
+                                asks.findOne(askCreated._id).then(askPropagated => {
+                                    let transitions = askPropagated.transitions;
+                                    assert(transitions.length === 1);
+                                    assert(2 === transitions[0].recipients.length);
+                                    assert('travelling' === askPropagated.status);
+                                    done();
+                                });
+                        });
+                    });
+                }).catch(done);
+            });
         });
     });
 });
