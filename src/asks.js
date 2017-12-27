@@ -15,20 +15,29 @@ function propagate(askId, sourceUser) {
             if (ask.owner !== sourceUser._id.toString() && sourceUser.inbox.indexOf(askId) < 0) {
                 reject('illegal propagate');
             } else {
-                const recipients = sourceUser.peers; // todo select recipients
-                // todo filter who already has this ask
-                Promise.all([
-                    users.update(
-                        {_id: {$in: recipients}},
-                        {$push: {inbox: askId}},
-                        {multi: true}),
-                    asks.update(askId, {
-                        $push: {transitions: new Transition(sourceUser._id.toString(), recipients)},
-                        $set: {status: 'travelling'}
-                    })]).then(resolve);
+                return Promise.all(sourceUser.peers.map(pid => users.findOne(pid))).then(recipients => {
+                    let actualRecipients = recipients.filter(hasNoAskInboxedOrOwned(ask)).map(r => r._id.toString());
+                    if (actualRecipients.length) {
+                        return Promise.all([
+                            users.update(
+                                {_id: {$in: actualRecipients}},
+                                {$push: {inbox: askId}},
+                                {multi: true}),
+                            asks.update(askId, {
+                                $push: {transitions: new Transition(sourceUser._id.toString(), actualRecipients)},
+                                $set: {status: 'travelling'}
+                            })]).then(resolve);
+                    } else {
+                        resolve();
+                    }
+                });
             }
         });
     });
+}
+
+function hasNoAskInboxedOrOwned(ask) {
+    return user => user.inbox.indexOf(ask._id.toString()) === -1 && user._id.toString() !== ask.owner
 }
 
 function incomes(user) {

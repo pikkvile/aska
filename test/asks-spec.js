@@ -7,31 +7,19 @@ const server = require('../src/index.js');
 const users = db.get('users');
 const asks = db.get('asks');
 
+function User(name) {
+    this.name = name;
+    this.type = 'fake';
+    this.inbox = [];
+    this.peers = [];
+}
+
 const testUsers = [
-    {
-        name: "Test user 1",
-        type: 'fake',
-        inbox: [],
-        peers: []
-    },
-    {
-        name: "Test user 2",
-        type: 'fake',
-        inbox: [],
-        peers: []
-    },
-    {
-        name: "Test user 3",
-        type: 'fake',
-        inbox: [],
-        peers: []
-    },
-    {
-        name: "Test user 4",
-        type: 'fake',
-        inbox: [],
-        peers: []
-    },
+    new User("Test user 1"),
+    new User("Test user 2"),
+    new User("Test user 3"),
+    new User("Test user 4"),
+    new User("Test user 5")
 ];
 
 const makeUsersPeers = (userName, peerNames) => users.findOne({name: userName})
@@ -44,7 +32,8 @@ const makeTwoUsersPeers = (u1, u2) => users.update(u1._id, {$push: {peers: u2._i
 const setup = () => users.remove().then(() => asks.remove())
     .then(() => users.insert(testUsers))
     .then(() => makeUsersPeers("Test user 1", ["Test user 2", "Test user 3"]))
-    .then(() => makeUsersPeers("Test user 2", ["Test user 4"]));
+    .then(() => makeUsersPeers("Test user 2", ["Test user 4"]))
+    .then(() => makeUsersPeers("Test user 3", ["Test user 5"]));
 
 const postAs = (user, url, form, cb) =>
     r({
@@ -70,6 +59,22 @@ const postAsk = (ask, initiator) => new Promise((resolve, reject) =>
         }
     }));
 
+const propagateAsk = (ask, propagator) => new Promise((resolve, reject) =>
+    getAs(propagator, 'http://localhost:' + config.port + "/ask/" + ask._id.toString() + '/propagate', function(err, resp) {
+        if (!err) {
+            resolve(resp);
+        } else {
+            reject(err);
+        }
+    }));
+
+function testAsk() {
+    return {
+        ask: 'Test ask from Test user 1',
+        bid: '1000'
+    };
+}
+
 after(done => server.close(() => {
     console.log("server closed");
     db.close().then(() => {
@@ -86,7 +91,7 @@ describe("Asks features", function() {
     it("verify beforeEach setup", done => {
         users.find()
             .then(usrs => {
-                assert(usrs.filter(u => u.peers.length).length === 4);
+                assert(usrs.filter(u => u.peers.length).length === 5);
                 assert(usrs.find(u => u.name === 'Test user 2').peers.indexOf(usrs.find(u => u.name === 'Test user 1')._id.toString()) !== -1);
                 assert(usrs.find(u => u.name === 'Test user 1').peers.indexOf(usrs.find(u => u.name === 'Test user 2')._id.toString()) !== -1);
             })
@@ -95,10 +100,7 @@ describe("Asks features", function() {
     });
 
     it("create", done => {
-        let ask = {
-            ask: 'Test ask from Test user 1',
-            bid: '1000'
-        };
+        let ask = testAsk();
         users.findOne({name: 'Test user 1'}).then(initiator => {
             postAsk(ask, initiator).then(resp => {
                 console.log(JSON.stringify(resp));
@@ -121,30 +123,27 @@ describe("Asks features", function() {
     });
 
     it("propagate", done => {
-        let ask = {
-            ask: 'Test ask from Test user 1',
-            bid: '1000'
-        };
-        users.findOne({name: 'Test user 1'}).then(initiator => {
+        let ask = testAsk();
+        users.find({name: {$in: ['Test user 1', 'Test user 2']}}).then(us => {
+            let initiator = us[0],
+                propagator = us[1];
             postAsk(ask, initiator).then(() => {
-                asks.findOne({owner: initiator._id.toString()}).then(askCreated => {
-                    users.findOne({name: 'Test user 1'}).then(propagater => {
-                        getAs(propagater,
-                            'http://localhost:' + config.port + "/ask/" + askCreated._id.toString() + '/propagate',
-                            function(err, resp) {
-                                console.log(JSON.stringify(resp));
-                                assert(resp.statusCode === 200);
-                                asks.findOne(askCreated._id).then(askPropagated => {
-                                    let transitions = askPropagated.transitions;
-                                    assert(transitions.length === 1);
-                                    assert(2 === transitions[0].recipients.length);
-                                    assert('travelling' === askPropagated.status);
-                                    done();
-                                });
-                        });
+                asks.findOne({owner: initiator._id.toString()}).then(ask => {
+                    propagateAsk(ask, initiator).then(resp => {
+                        console.log(JSON.stringify(resp));
+                        assert(resp.statusCode === 200);
+                    }).then(() => propagateAsk(ask, propagator)).then(() => {
+                        asks.findOne(ask._id).then(askPropagatedTwice => {
+                            assert('travelling' === askPropagatedTwice.status);
+                            let transitions = askPropagatedTwice.transitions;
+                            assert(2 === transitions.length);
+                            assert(2 === transitions[0].recipients.length);
+                            assert(1 === transitions[1].recipients.length);
+                            done();
+                        }).catch(done);
                     });
-                }).catch(done);
-            });
+                });
+            }).catch(done);
         });
     });
 });
