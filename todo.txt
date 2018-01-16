@@ -1,8 +1,6 @@
-1. Show asks differently by status (created / travelling / resolved / cancelled) #ui
+1. Show asks differently by status (created / travelling / resolved / withdrawn / pending-completion) #ui
 2. Show some ditribution (transitions) info #ui
 3. Mocha test actions with not owned ask #mocha
 4. Ask tags #ui
 5. Select recipients (all or individually) #ui
-6. Filter who already has this ask (do not propagate back)
-
 7. Complete ask feature #asks #ui

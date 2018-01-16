@@ -28,19 +28,16 @@ app.get('/logout', sec.logout);
 
 // asks
 app.get(['/', '/asks'], sec.authorized, (req, res) => asksrv.incomes(req.user).then(asks => {
-        res.render('asks', {
+        res.render('income-asks', {
             user: req.user,
-            asks: asks,
-            emptyMessage: 'You have no incoming asks yet'
+            asks: asks
         })
     })
 );
 app.get('/asks/mine', sec.authorized, (req, res) => asksrv.mine(req.user).then(asks => {
-        res.render('asks', {
+        res.render('mine-asks', {
             user: req.user,
-            asks: asks,
-            emptyMessage: 'You have no sent asks yet',
-            page: 'mine'
+            asks: asks
         })
     })
 );
@@ -50,6 +47,18 @@ app.get('/ask/:id/propagate', sec.authorized, (req, res) =>
     asksrv.propagate(req.params.id, req.user).then(
         () => res.redirect('/asks'),
         () => res.sendStatus(403)));
+app.get('/ask/:id/cancel', sec.authorized, (req, res) =>
+    asksrv.cancel(req.params.id, req.user).then(
+        () => res.redirect('/asks/mine'),
+        () => res.sendStatus(403)));
+
+// todo
+// 1. Add Completion in pending state (asksrv.complete) --DONE--
+// 2. initiator sees completors contacts when select one
+// 3. If/when request is fulfilled, initiator closes request (this triggers payments and stop all work on request)
+app.get('/ask/:id/complete', sec.authorized, (req, res) =>
+    asksrv.complete(req.params.id, req.user)
+    .then(() => res.redirect('/asks')));
 
 // contacts
 app.get('/contacts', sec.authorized, (req, res) =>  {
@@ -74,6 +83,7 @@ function Ask(req) {
     this.tags = [];
     this.transitions = []; // see Transition in asks.js
     this.status = 'created'; // created / travelling / resolved / cancelled
+    this.completions = []; // [Completion]
 }
 
 // for tests
@@ -98,3 +108,5 @@ module.exports = server;
 // 3. user once received an ask can propagate it (same as create, no routing yet implemented)
 
 // 4. asks can be satisfied (completed, fulfilled)
+
+// User only knows his own peer who sent as ask to him... he does not see all chain.

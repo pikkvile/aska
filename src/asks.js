@@ -1,5 +1,7 @@
 'use strict';
 
+const moment = require('moment');
+
 const db = require('./db.js');
 const users = db.get('users');
 const asks = db.get('asks');
@@ -12,7 +14,7 @@ function create(ask) {
 function propagate(askId, sourceUser) {
     return new Promise((resolve, reject) => {
         asks.findOne(askId).then(ask => {
-            if (ask.owner !== sourceUser._id.toString() && sourceUser.inbox.indexOf(askId) < 0) {
+            if (hasNoAskInboxedOrOwned(ask)(sourceUser)) {
                 reject('illegal propagate');
             } else {
                 return Promise.all(sourceUser.peers.map(pid => users.findOne(pid))).then(recipients => {
@@ -36,16 +38,42 @@ function propagate(askId, sourceUser) {
     });
 }
 
+function isOwner(ask, user) {
+    return user._id.toString() === ask.owner;
+}
+
 function hasNoAskInboxedOrOwned(ask) {
-    return user => user.inbox.indexOf(ask._id.toString()) === -1 && user._id.toString() !== ask.owner
+    return user => user.inbox.indexOf(ask._id.toString()) === -1 && !isOwner(ask, user);
 }
 
 function incomes(user) {
-    return asks.find({_id: {$in: user.inbox}});
+    return asks.find({_id: {$in: user.inbox}}).then(asks => {
+        return asks.map(ask => {
+            ask.hasBeenPropagatedByMe = ask.transitions.some(tr => tr.emitter === user._id.toString());
+            ask.myCompletion = ask.completions.find(cmp => cmp.completer === user._id.toString());
+            return ask;
+        });
+    });
 }
 
 function mine(user) {
     return asks.find({owner: user._id.toString()});
+}
+
+function complete(askId, completor) {
+    return asks.update(askId, {$push: {completions: new Completion(completor)}});
+}
+
+function cancel(askId, canceller) {
+    return new Promise((resolve, reject) => {
+        asks.findOne(askId).then(ask => {
+            if (!isOwner(ask, canceller)) {
+                reject('illegal cancel');
+            } else {
+                asks.update(askId, {$set: {status: 'cancelled'}}).then(resolve);
+            }
+        });
+    });
 }
 
 // model
@@ -56,9 +84,17 @@ function Transition(emitter, recipients) {
     this.recipients = recipients;
 }
 
+function Completion(completer) {
+    this.proposedAt = new Date();
+    this.status = 'pending'; // pending / accepted / rejected
+    this.completer = completer._id.toString(); // completor user id
+}
+
 module.exports = {
     create: create,
     propagate: propagate,
     incomes: incomes,
-    mine: mine
+    mine: mine,
+    complete: complete,
+    cancel: cancel
 };

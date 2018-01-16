@@ -1,0 +1,30 @@
+extends layout.pug
+
+block content
+    if asks.length
+        ul.list-unstyled
+            each ask in asks
+                li.ask
+                    div.row.ask-head
+                        //-
+                            div.col-3.ask-title
+                                h5 #{ask.title}
+                            div.col-2.offset-7.text-right.ask-bid #{ask.bid}
+                    div.row.ask-body
+                        div.col-12.text-justify #{ask.body}
+                    div.row.ask-bottom
+                        if ask.hasBeenPropagatedByMe
+                            div.col: i Propagated at !TODO, reached !TODO peers after you
+                        else if ask.myCompletion
+                            div.col: i Completion proposed at #{ask.myCompletion.proposedAt}
+                        else
+                            a.col(href='/ask/' + ask._id + '/propagate') propagate
+                            a.col(href='/ask/' + ask._id + '/reject') reject TODO
+                            a.col(href='/ask/' + ask._id + '/complete') complete
+                        //-
+                            div.col-10.ask-tags
+                                each tag in ask.tags
+                                    span.ask-tag #{tag}
+                            div.col-2.text-right.ask-owner TODO (nearest propagater name)
+    else
+        h6: i You have no incoming asks yet
